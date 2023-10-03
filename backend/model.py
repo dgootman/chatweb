@@ -28,7 +28,17 @@ class SendMessage(BaseModel):
     body: str
 
 
+class ChatProviderInfo(BaseModel):
+    id: str
+    name: str
+    icon: str
+
+
 class ChatProvider(ABC):
+    @abstractmethod
+    def info(self) -> ChatProviderInfo:
+        raise NotImplementedError()
+
     @abstractmethod
     async def init(self) -> None:
         raise NotImplementedError()

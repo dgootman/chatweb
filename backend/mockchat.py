@@ -3,7 +3,14 @@ from datetime import datetime
 
 import aiohttp
 
-from model import ChatProvider, Contact, Conversation, Message, SendMessage
+from model import (
+    ChatProvider,
+    ChatProviderInfo,
+    Contact,
+    Conversation,
+    Message,
+    SendMessage,
+)
 
 
 class MockChatProvider(ChatProvider):
@@ -13,6 +20,13 @@ class MockChatProvider(ChatProvider):
         self._contacts: list[Contact] = []
         self._conversations: list[Conversation] = []
         self._messages: dict[str, list[Message]] = {}
+
+    def info(self) -> ChatProviderInfo:
+        return ChatProviderInfo(
+            id="mock",
+            name="Mock",
+            icon="https://em-content.zobj.net/source/apple/354/speech-balloon_1f4ac.png",
+        )
 
     async def init(self) -> None:
         async with aiohttp.ClientSession() as session:

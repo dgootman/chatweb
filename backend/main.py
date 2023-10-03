@@ -36,11 +36,12 @@ class InterceptHandler(logging.Handler):
 
 logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO, force=True)
 
-providers: dict[str, ChatProvider] = {"mock": MockChatProvider()}
+_providers: list[ChatProvider] = [MockChatProvider()]
+_providers_map = {provider.info().id: provider for provider in _providers}
 
 
 def get_provider():
-    return providers["mock"]
+    return _providers_map["mock"]
 
 
 ChatProviderDependency = Annotated[ChatProvider, Depends(get_provider)]
@@ -48,12 +49,18 @@ ChatProviderDependency = Annotated[ChatProvider, Depends(get_provider)]
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    await asyncio.gather(*list(p.init() for p in providers.values()))
+    # Initialize all providers
+    await asyncio.gather(*list(p.init() for p in _providers))
 
     yield
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/providers")
+async def providers():
+    return [p.info() for p in _providers]
 
 
 @app.get("/whoami")
