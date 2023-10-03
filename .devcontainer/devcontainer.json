@@ -8,6 +8,16 @@
 		"ghcr.io/devcontainers/features/node:1": {},
 		"ghcr.io/devcontainers/features/python:1": {},
 		"ghcr.io/devcontainers-contrib/features/poetry:2": {}
+	},
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"esbenp.prettier-vscode",
+				"ms-python.black-formatter",
+				"ms-python.isort"
+			]
+		}
 	}
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
