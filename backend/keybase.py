@@ -7,7 +7,6 @@ from enum import Enum
 import aiohttp
 from loguru import logger
 from pydantic import BaseModel
-from slugify import slugify
 
 from model import (
     ChatProvider,
@@ -70,12 +69,12 @@ class ReadResponse(BaseModel):
                         body: str
 
                     type: str
-                    text: KeybaseText | None
+                    text: KeybaseText | None = None
 
                 class KeybaseSender(BaseModel):
                     uid: str
 
-                id: str
+                id: int
                 sender: KeybaseSender
                 sent_at: int
                 content: KeybaseContent
@@ -98,9 +97,9 @@ class KeybaseChatProvider(ChatProvider):
             icon="https://keybase.io/images/icons/icon-keybase-logo-48@2x.png",
         )
 
-    async def run(self, command: list[str]):
+    async def _run(self, command: list[str]):
         full_command = self.keybase_command.split() + command
-        logger.debug(f"Keybase command: {full_command}")
+        logger.trace(f"Keybase command: {full_command}")
 
         process = await asyncio.create_subprocess_exec(
             full_command[0],
@@ -123,11 +122,11 @@ class KeybaseChatProvider(ChatProvider):
 
         result = await process.stdout.read()
         result = result.decode()
-        logger.debug(f"Keybase result: {result}")
+        logger.trace(f"Keybase result: {result}")
         return result
 
-    async def chat(self, command: dict) -> dict:
-        result = await self.run(
+    async def _chat(self, command: dict) -> dict:
+        result = await self._run(
             [
                 "chat",
                 "api",
@@ -140,17 +139,36 @@ class KeybaseChatProvider(ChatProvider):
     async def init(self) -> None:
         pass
 
+    async def _lookup(self, username: str) -> Contact:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://keybase.io/_/api/1.0/user/lookup.json",
+                params={"username": username, "fields": "basics,profile,pictures"},
+            ) as response:
+                data = await response.json()
+
+            user = data["them"]
+            full_name = user["profile"]["full_name"] if "profile" in user else username
+            return Contact(
+                id=user["id"],
+                name=full_name,
+                avatar=user["pictures"]["primary"]["url"]
+                if "pictures" in user
+                else f"https://api.dicebear.com/7.x/initials/svg?seed={full_name}",
+            )
+
     async def whoami(self) -> Contact:
-        data = await self.run("whoami -j".split())
+        data = await self._run("whoami -j".split())
         response = WhoamiResponse(**json.loads(data))
+        contact = await self._lookup(response.user.username)
         return Contact(
             id=response.user.uid,
             name=response.user.username,
-            avatar=f"https://api.dicebear.com/7.x/initials/svg?seed={slugify(response.user.username)}",
+            avatar=contact.avatar,
         )
 
-    async def list_members(self, conversation_id: str) -> ListMembersResponse:
-        data = await self.chat(
+    async def _list_members(self, conversation_id: str) -> ListMembersResponse:
+        data = await self._chat(
             {
                 "method": "listmembers",
                 "params": {"options": {"conversation_id": conversation_id}},
@@ -159,12 +177,12 @@ class KeybaseChatProvider(ChatProvider):
         return ListMembersResponse(**data)
 
     async def contacts(self) -> list[Contact]:
-        data = await self.chat({"method": "list"})
+        data = await self._chat({"method": "list"})
         list_response = ListResponse(**data)
         conversations = list_response.result.conversations
 
         conversation_members_list = await asyncio.gather(
-            *[self.list_members(c.id) for c in conversations]
+            *[self._list_members(c.id) for c in conversations]
         )
 
         owners = {o.uid: o for r in conversation_members_list for o in r.result.owners}
@@ -196,9 +214,9 @@ class KeybaseChatProvider(ChatProvider):
 
     async def conversations(self) -> list[Conversation]:
         me = WhoamiResponse(
-            **json.loads(await self.run("whoami -j".split()))
+            **json.loads(await self._run("whoami -j".split()))
         ).user.username
-        data = await self.chat({"method": "list"})
+        data = await self._chat({"method": "list"})
         list_response = ListResponse(**data)
         conversations = list_response.result.conversations
 
@@ -265,7 +283,7 @@ class KeybaseChatProvider(ChatProvider):
         )
 
     async def messages(self, conversation_id: str = None):
-        data = await self.chat(
+        data = await self._chat(
             {
                 "method": "read",
                 "params": {
@@ -280,7 +298,6 @@ class KeybaseChatProvider(ChatProvider):
         return sorted(
             (
                 Message(
-                    id=message.msg.id,
                     timestamp=datetime.fromtimestamp(message.msg.sent_at),
                     body=message.msg.content.text.body,
                     sender=message.msg.sender.uid,
@@ -292,7 +309,7 @@ class KeybaseChatProvider(ChatProvider):
         )
 
     async def send_message(self, request: SendMessage):
-        return await self.chat(
+        return await self._chat(
             {
                 "method": "send",
                 "params": {
