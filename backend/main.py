@@ -5,9 +5,10 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Header
 from loguru import logger
 
+from keybase import KeybaseChatProvider
 from mockchat import MockChatProvider
 from model import ChatProvider, SendMessage
 
@@ -36,12 +37,12 @@ class InterceptHandler(logging.Handler):
 
 logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO, force=True)
 
-_providers: list[ChatProvider] = [MockChatProvider()]
+_providers: list[ChatProvider] = [KeybaseChatProvider(), MockChatProvider()]
 _providers_map = {provider.info().id: provider for provider in _providers}
 
 
-def get_provider():
-    return _providers_map["mock"]
+def get_provider(provider_id: Annotated[str, Header()]):
+    return _providers_map[provider_id]
 
 
 ChatProviderDependency = Annotated[ChatProvider, Depends(get_provider)]
