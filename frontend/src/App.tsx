@@ -259,7 +259,7 @@ export default function App() {
             </MessageList>
             <MessageInput
               placeholder="Type message here"
-              onSend={(_, textContent) => sendMessage(textContent)}
+              onSend={(_, __, innerText) => sendMessage(innerText)}
             />
           </ChatContainer>
         )}
