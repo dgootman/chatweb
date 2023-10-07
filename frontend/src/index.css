@@ -1,3 +1,9 @@
+/* Full-page app with margin */
+#root {
+  position: absolute !important;
+  inset: 5px;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
