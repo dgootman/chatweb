@@ -21,6 +21,7 @@ import useLocalStorageState from "use-local-storage-state";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 namespace Chatweb {
   export interface Contact {
     id: string;
